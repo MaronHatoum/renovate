@@ -1,6 +1,6 @@
 export interface Doc {
   releases?: {
-    name: string;
+    name: string | NameObject;
     chart: string;
     version: string;
   }[];
@@ -8,4 +8,8 @@ export interface Doc {
     name: string;
     url: string;
   }[];
+}
+
+export interface NameObject {
+  requiredEnv: string;
 }

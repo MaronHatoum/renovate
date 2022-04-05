@@ -202,5 +202,22 @@ describe('modules/manager/helmfile/extract', () => {
         ],
       });
     });
+
+    it('helmFile name property is an object', () => {
+      const content = `
+      releases:
+        - name: {{ requiredEnv "RELEASE_NAME" }}
+          namespace: default
+          chart: stable/example`;
+      const fileName = 'helmfile.yaml';
+      const result = extractPackageFile(content, fileName, {
+        aliases: {
+          stable: 'https://charts.helm.sh/stable',
+        },
+      });
+      expect(result).not.toBeNull();
+      expect(result).toMatchSnapshot();
+      expect(result.deps.every((dep) => dep.skipReason)).toBeTruthy();
+    });
   });
 });

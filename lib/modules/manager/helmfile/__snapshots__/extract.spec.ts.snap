@@ -132,3 +132,18 @@ Object {
   ],
 }
 `;
+
+
+exports[`modules/manager/helmfile/extract extractPackageFile() helmFile name property is an object 1`] = `
+Object {
+  "datasource": "helm",
+  "deps": Array [
+    Object {
+      "currentValue": "1.0.0",
+      "depName": {"[object Object]": null},
+      "registryUrls": Array [],
+      "skipReason": "unknown-registry",
+    },
+  ],
+}
+`;
