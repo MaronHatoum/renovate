@@ -76,7 +76,7 @@ async function gotRoutine<T>(
 }
 
 export class Http<GetOptions = HttpOptions, PostOptions = HttpPostOptions> {
-  private options?: GotOptions;
+  private options?: HttpOptions;
 
   constructor(private hostType: string, options: HttpOptions = {}) {
     this.options = merge<GotOptions>(options, { context: { hostType } });
@@ -99,18 +99,15 @@ export class Http<GetOptions = HttpOptions, PostOptions = HttpPostOptions> {
       },
       httpOptions
     );
-
     if (process.env.NODE_ENV === 'test') {
       options.retry = 0;
     }
     options.hooks = {
       beforeRedirect: [removeAuthorization],
     };
-
     applyDefaultHeaders(options);
-
-    options = applyHostRules(url, options);
-    if (options.enabled === false) {
+    options = applyHostRules(url, { gotOptions: options });
+    if (options?.enabled === false) {
       throw new Error(HOST_DISABLED);
     }
     options = applyAuthorization(options);
@@ -143,7 +140,7 @@ export class Http<GetOptions = HttpOptions, PostOptions = HttpPostOptions> {
       const queueTask = (): Promise<Response<T>> => {
         const queueDuration = Date.now() - startTime;
         return gotRoutine(url, options, {
-          method: options.method,
+          method: options?.method,
           url,
           queueDuration,
         });

@@ -5,10 +5,12 @@ import {
   GITLAB_API_USING_HOST_TYPES,
   PlatformId,
 } from '../../constants';
-import type { GotOptions } from './types';
+import type { HttpOptions } from './types';
 
-export function applyAuthorization(inOptions: GotOptions): GotOptions {
-  const options: GotOptions = { ...inOptions };
+export function applyAuthorization(
+  inOptions: HttpOptions['gotOptions']
+): HttpOptions {
+  const options: HttpOptions['gotOptions'] = { ...inOptions };
 
   if (options.headers?.authorization || options.noAuth) {
     return options;
