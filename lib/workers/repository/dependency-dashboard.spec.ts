@@ -9,6 +9,7 @@ import {
 } from '../../../test/util';
 import { GlobalConfig } from '../../config/global';
 import { PlatformId } from '../../constants';
+import type { PackageFile } from '../../modules/manager/types';
 import type { Platform } from '../../modules/platform';
 import { BranchConfig, BranchResult, BranchUpgradeConfig } from '../types';
 import * as dependencyDashboard from './dependency-dashboard';
@@ -662,6 +663,30 @@ describe('workers/repository/dependency-dashboard', () => {
           expect(platform.ensureIssue).toHaveBeenCalledTimes(1);
           expect(platform.ensureIssue.mock.calls[0][0].body).toMatchSnapshot();
 
+          // same with dry run
+          await dryRun(branches, platform);
+        });
+
+        it('Dependency Lookup Warnings message in issues body', async () => {
+          const branches: BranchConfig[] = [];
+          PackageFiles.add('main', {
+            npm: [{ packageFile: 'package.json', deps: [] }],
+          });
+          const dep = [
+            {
+              warnings: [{ message: 'Warning 2', topic: undefined }],
+            },
+          ];
+          const packageFiles: Record<string, PackageFile[]> = {
+            npm: [{ packageFile: 'package.json', deps: dep }],
+          };
+          await dependencyDashboard.ensureDependencyDashboard(
+            config,
+            branches,
+            packageFiles
+          );
+          expect(platform.ensureIssue).toHaveBeenCalledTimes(1);
+          expect(platform.ensureIssue.mock.calls[0][0].body).toMatchSnapshot();
           // same with dry run
           await dryRun(branches, platform);
         });

@@ -3,8 +3,10 @@ import { logger } from '../../logger';
 import type { PackageFile } from '../../modules/manager/types';
 import { emojify } from '../../util/emoji';
 
+type depWarningsModes = 'pr' | 'dashboard';
+
 export function getWarnings(config: RenovateConfig): string {
-  if (!config.warnings.length) {
+  if (!config.warnings?.length) {
     return '';
   }
   let warningText = `\n# Warnings (${config.warnings.length})\n\n`;
@@ -18,7 +20,7 @@ export function getWarnings(config: RenovateConfig): string {
 
 export function getErrors(config: RenovateConfig): string {
   let errorText = '';
-  if (!config.errors.length) {
+  if (!config.errors?.length) {
     return '';
   }
   errorText = `\n# Errors (${config.errors.length})\n\n`;
@@ -31,7 +33,8 @@ export function getErrors(config: RenovateConfig): string {
 }
 
 export function getDepWarnings(
-  packageFiles: Record<string, PackageFile[]>
+  packageFiles: Record<string, PackageFile[]>,
+  mode: depWarningsModes = 'pr'
 ): string {
   let warningText = '';
   try {
@@ -46,7 +49,10 @@ export function getDepWarnings(
               if (!warnings.includes(message)) {
                 warnings.push(message);
               }
-              if (!warningFiles.includes(file.packageFile)) {
+              if (
+                file.packageFile &&
+                !warningFiles.includes(file.packageFile)
+              ) {
                 warningFiles.push(file.packageFile);
               }
             }
@@ -54,6 +60,51 @@ export function getDepWarnings(
         }
       }
     }
+    if (mode === 'pr') {
+      warningText = getDepWarningsPR(warnings, warningFiles);
+    } else if (mode === 'dashboard') {
+      warningText = getDepWarningsDashboard(warnings, warningFiles);
+    }
+  } catch (err) {
+    // istanbul ignore next
+    logger.error({ err }, 'Error generating packageFiles');
+  }
+  return warningText;
+}
+
+function getDepWarningsDashboard(
+  warnings: string[],
+  warningFiles: string[]
+): string {
+  let warningText = '';
+  try {
+    if (!warnings.length) {
+      return '';
+    }
+    logger.debug(
+      { warnings, warningFiles },
+      'Found package lookup warnings in onboarding'
+    );
+    warningText = emojify(
+      `\n---\n\n### :warning: Dependency Lookup Warnings :warning:\n\n`
+    );
+    warnings.forEach((w) => {
+      warningText += `-   \`${w}\`\n`;
+    });
+    warningText +=
+      '\nFiles affected: ' +
+      warningFiles.map((f) => '`' + f + '`').join(', ') +
+      '\n\n';
+  } catch (err) {
+    // istanbul ignore next
+    logger.error({ err }, 'Error generating dep warnings text');
+  }
+  return warningText;
+}
+
+function getDepWarningsPR(warnings: string[], warningFiles: string[]): string {
+  let warningText = '';
+  try {
     if (!warnings.length) {
       return '';
     }

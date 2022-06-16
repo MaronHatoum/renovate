@@ -99,7 +99,7 @@ If you need any further assistance then you can also [request help here](${confi
   prBody = prBody.replace('{{CONFIG}}\n', configDesc);
   prBody = prBody.replace(
     '{{WARNINGS}}\n',
-    getWarnings(config) + getDepWarnings(packageFiles)
+    getWarnings(config) + getDepWarnings(packageFiles, 'pr')
   );
   prBody = prBody.replace('{{ERRORS}}\n', getErrors(config));
   prBody = prBody.replace('{{BASEBRANCH}}\n', getBaseBranchDesc(config));
