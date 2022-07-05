@@ -13,27 +13,80 @@ import { PackageFiles } from './package-files';
 interface DependencyDashboard {
   dependencyDashboardChecks: Record<string, string>;
   dependencyDashboardRebaseAllOpen: boolean;
+  dependencyDashboardAllPending: boolean;
+  dependencyDashboardAllRateLimited: boolean;
+}
+
+// updates the issue body by marking all 'approve-branch' as checked
+function markBranchesApproveAllPendingPR(issueBody: string): string {
+  let newIssueBody = issueBody;
+  const checkPending = regEx(/ - \[ ] <!-- approve-branch=/g);
+  newIssueBody = newIssueBody.replace(
+    checkPending,
+    ' - [x] <!-- approve-branch='
+  );
+  return newIssueBody;
+}
+
+// updates the issue body by marking all 'unlimit-branch' as checked
+function markBranchesOpenAllRateLimitedPR(issueBody: string): string {
+  let newIssueBody = issueBody;
+  const checkRateLimited = regEx(/ - \[ ] <!-- unlimit-branch=/g);
+  newIssueBody = newIssueBody.replace(
+    checkRateLimited,
+    ' - [x] <!-- unlimit-branch='
+  );
+  return newIssueBody;
+}
+
+// returns if the checkbox 'Open all rate-limited PRs' is checked
+function isOpenAllRateLimitedPR(issueBody: string): boolean {
+  const rateLimitRe = regEx(/- \[x] <!-- open-all-rate-limited-prs -->/);
+  return rateLimitRe.test(issueBody);
+}
+
+// returns if the checkbox 'Approve all pending PRs' is checked
+function isApproveAllPendingPR(issueBody: string): boolean {
+  const approvePendingRe = regEx(/- \[x] <!-- approve-all-pending-prs -->/);
+  return approvePendingRe.test(issueBody);
 }
 
 function parseDashboardIssue(issueBody: string): DependencyDashboard {
+  const allPending = isApproveAllPendingPR(issueBody);
+  const allRateLimited = isOpenAllRateLimitedPR(issueBody);
+  let massagedIssueBody = issueBody;
+  if (allRateLimited) {
+    massagedIssueBody = markBranchesOpenAllRateLimitedPR(massagedIssueBody);
+  }
+  if (allPending) {
+    massagedIssueBody = markBranchesApproveAllPendingPR(massagedIssueBody);
+  }
   const checkMatch = ' - \\[x\\] <!-- ([a-zA-Z]+)-branch=([^\\s]+) -->';
-  const checked = issueBody.match(regEx(checkMatch, 'g'));
-  const dependencyDashboardChecks: Record<string, string> = {};
+  const checked = massagedIssueBody.match(regEx(checkMatch, 'g'));
+  const checkedBranches: Record<string, string> = {};
   if (checked?.length) {
     const re = regEx(checkMatch);
     checked.forEach((check) => {
       const [, type, branchName] = re.exec(check)!;
-      dependencyDashboardChecks[branchName] = type;
+      checkedBranches[branchName] = type;
     });
   }
-  const checkedRebaseAll = issueBody.includes(
+  const checkedRebaseAll = massagedIssueBody.includes(
     ' - [x] <!-- rebase-all-open-prs -->'
   );
-  let dependencyDashboardRebaseAllOpen = false;
+
+  let rebaseAllOpen = false;
+
   if (checkedRebaseAll) {
-    dependencyDashboardRebaseAllOpen = true;
+    rebaseAllOpen = true;
   }
-  return { dependencyDashboardChecks, dependencyDashboardRebaseAllOpen };
+
+  return {
+    dependencyDashboardChecks: checkedBranches,
+    dependencyDashboardRebaseAllOpen: rebaseAllOpen,
+    dependencyDashboardAllPending: allPending,
+    dependencyDashboardAllRateLimited: allRateLimited,
+  };
 }
 
 export async function readDashboardBody(config: RenovateConfig): Promise<void> {
@@ -163,6 +216,11 @@ export async function ensureDependencyDashboard(
   if (pendingApprovals.length) {
     issueBody += '## Pending Approval\n\n';
     issueBody += `These branches will be created by Renovate only once you click their checkbox below.\n\n`;
+    if (pendingApprovals.length > 1) {
+      issueBody += ' - [ ] ';
+      issueBody += '<!-- approve-all-pending-prs -->';
+      issueBody += '**Approve all pending PRs**\n';
+    }
     for (const branch of pendingApprovals) {
       issueBody += getListItem(branch, 'approve');
     }
@@ -180,16 +238,23 @@ export async function ensureDependencyDashboard(
     }
     issueBody += '\n';
   }
+
   const rateLimited = branches.filter(
     (branch) =>
       branch.result === BranchResult.BranchLimitReached ||
       branch.result === BranchResult.PrLimitReached ||
       branch.result === BranchResult.CommitLimitReached
   );
+
   if (rateLimited.length) {
     issueBody += '## Rate Limited\n\n';
     issueBody +=
       'These updates are currently rate limited. Click on a checkbox below to force their creation now.\n\n';
+    if (rateLimited.length > 1) {
+      issueBody += ' - [ ] ';
+      issueBody += '<!-- open-all-rate-limited-prs -->';
+      issueBody += '**Open all rate-limited PRs**\n';
+    }
     for (const branch of rateLimited) {
       issueBody += getListItem(branch, 'unlimit');
     }
@@ -333,9 +398,11 @@ export async function ensureDependencyDashboard(
       false
     );
     if (updatedIssue) {
-      const { dependencyDashboardChecks } = parseDashboardIssue(
-        updatedIssue.body!
-      );
+      const {
+        dependencyDashboardChecks,
+        dependencyDashboardAllPending,
+        dependencyDashboardAllRateLimited,
+      } = parseDashboardIssue(updatedIssue.body!);
       for (const branchName of Object.keys(config.dependencyDashboardChecks!)) {
         delete dependencyDashboardChecks[branchName];
       }
@@ -344,6 +411,20 @@ export async function ensureDependencyDashboard(
         issueBody = issueBody.replace(
           checkText,
           checkText.replace('[ ]', '[x]')
+        );
+      }
+      if (dependencyDashboardAllPending) {
+        const checkAllPending = ` - [ ] <!-- approve-all-pending-prs -->`;
+        issueBody = issueBody.replace(
+          checkAllPending,
+          checkAllPending.replace('[ ]', '[x]')
+        );
+      }
+      if (dependencyDashboardAllRateLimited) {
+        const checkAllRateLimited = ` - [ ] <!-- open-all-rate-limited-prs -->`;
+        issueBody = issueBody.replace(
+          checkAllRateLimited,
+          checkAllRateLimited.replace('[ ]', '[x]')
         );
       }
     }
