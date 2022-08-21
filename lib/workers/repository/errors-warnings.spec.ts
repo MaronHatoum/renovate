@@ -45,11 +45,15 @@ describe('workers/repository/errors-warnings', () => {
   });
 
   describe('getDepWarningsPR()', () => {
+    let config: RenovateConfig;
+
     beforeEach(() => {
       jest.resetAllMocks();
+      config = getConfig();
     });
 
-    it('returns pr warning text', () => {
+    it('returns pr warning text check logs', () => {
+      config.dependencyDashboard = false;
       const packageFiles: Record<string, PackageFile[]> = {
         npm: [
           {
@@ -82,19 +86,57 @@ describe('workers/repository/errors-warnings', () => {
         ],
       };
 
-      const res = getDepWarningsPR(packageFiles);
+      const res = getDepWarningsPR(packageFiles, config.dependencyDashboard);
       expect(res).toMatchInlineSnapshot(`
         "
-        ---
-
         ### ⚠ Dependency Lookup Warnings ⚠
 
-        Please correct - or verify that you can safely ignore - these lookup failures before you merge this PR.
+        Warnings have been detected - for more details please check the logs
 
-        -   \`Warning 1\`
-        -   \`Warning 2\`
+        "
+      `);
+    });
 
-        Files affected: \`package.json\`, \`backend/package.json\`, \`Dockerfile\`
+    it('returns pr warning text check dependency dashboard', () => {
+      config.dependencyDashboard = true;
+      const packageFiles: Record<string, PackageFile[]> = {
+        npm: [
+          {
+            packageFile: 'package.json',
+            deps: [
+              {
+                warnings: [{ message: 'Warning 1', topic: '' }],
+              },
+              {},
+            ],
+          },
+          {
+            packageFile: 'backend/package.json',
+            deps: [
+              {
+                warnings: [{ message: 'Warning 1', topic: '' }],
+              },
+            ],
+          },
+        ],
+        dockerfile: [
+          {
+            packageFile: 'Dockerfile',
+            deps: [
+              {
+                warnings: [{ message: 'Warning 2', topic: '' }],
+              },
+            ],
+          },
+        ],
+      };
+
+      const res = getDepWarningsPR(packageFiles, config.dependencyDashboard);
+      expect(res).toMatchInlineSnapshot(`
+        "
+        ### ⚠ Dependency Lookup Warnings ⚠
+
+        Warnings have been detected - for more details please check the dashboard
 
         "
       `);

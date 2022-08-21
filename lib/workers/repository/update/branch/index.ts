@@ -45,6 +45,7 @@ import { Limit, isLimitReached } from '../../../global/limits';
 import { BranchConfig, BranchResult, PrBlockedBy } from '../../../types';
 import { embedChangelog, needsChangelogs } from '../../changelog';
 // import { embedChangelog, needsChangelogs } from '../../changelog';
+import { getDepWarningsPR } from '../../errors-warnings';
 import { ensurePr, getPlatformPrOptions, updatePrDebugData } from '../pr';
 import { checkAutoMerge } from '../pr/automerge';
 import { getPrBody } from '../pr/body';
@@ -758,6 +759,19 @@ export async function processBranch(
         }
       } else {
         logger.debug('PR is not configured for automerge');
+      }
+      if (config.warnings) {
+        if (config.packageFiles) {
+          const content = getDepWarningsPR(
+            config.packageFiles,
+            config.dependencyDashboard
+          );
+          await ensureComment({
+            number: pr.number,
+            topic: '',
+            content,
+          });
+        }
       }
     }
   } catch (err) /* istanbul ignore next */ {
