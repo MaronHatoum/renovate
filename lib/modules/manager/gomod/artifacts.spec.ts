@@ -91,6 +91,25 @@ describe('modules/manager/gomod/artifacts', () => {
     expect(execSnapshots).toBeEmptyArray();
   });
 
+  it('returns if no go.sum found1', async () => {
+    fs.readLocalFile.mockResolvedValueOnce('Current go.sum');
+    fs.readLocalFile.mockResolvedValueOnce(null); // vendor modules filename
+    const execSnapshots = mockExecAll();
+    git.getRepoStatus.mockResolvedValueOnce({
+      modified: [] as string[],
+    } as StatusResult);
+    delete config.constraints;
+    expect(
+      await gomod.updateArtifacts({
+        packageFileName: 'go.mod',
+        updatedDeps: [],
+        newPackageFileContent: gomod1,
+        config,
+      })
+    ).toBeNull();
+    expect(execSnapshots).toBeEmptyArray();
+  });
+
   it('returns null if unchanged', async () => {
     fs.readLocalFile.mockResolvedValueOnce('Current go.sum');
     fs.readLocalFile.mockResolvedValueOnce(null); // vendor modules filename
